@@ -136,7 +136,7 @@ Always Use The CompanyJobs Database Please Dont Use Postgre
 Show And View Are The Same Thing Use Select Command
 # Current Database Schema:
 {schema_info}
-
+If Multiple Tbale Schemas 
 If the user asks to sort or reorder a table permanently, do this:
 CREATE TABLE original_temp AS SELECT * FROM original ORDER BY column;
 DROP TABLE original;
