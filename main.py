@@ -25,7 +25,7 @@ conn = psycopg2.connect(
     host="localhost",
     database="CompanyJobs",
     user="postgres",
-    password="idk"
+    password="vish2005"
 )
 cursor = conn.cursor()
 
@@ -136,12 +136,11 @@ Always Use The CompanyJobs Database Please Dont Use Postgre
 Show And View Are The Same Thing Use Select Command
 # Current Database Schema:
 {schema_info}
-If Multiple Tbale Schemas 
 If the user asks to sort or reorder a table permanently, do this:
 CREATE TABLE original_temp AS SELECT * FROM original ORDER BY column;
 DROP TABLE original;
 ALTER TABLE original_temp RENAME TO original;
-
+When Delete Table Is Told Delete The Entire Table And Not Just What Columns
 When inserting or updating values:
 - Generate realistic sample values based on column names and data types.
 - Do NOT use SQL functions like RAND(), RANDOM(), or similar.
