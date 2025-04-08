@@ -14,7 +14,7 @@
         <div id="output"></div>
         <textarea id="prompt" placeholder="Ask something like 'Show all employees in HR' or 'Update status of employee 2'"></textarea><br>
         <button onclick="sendPrompt()">Send</button>
-        <button onclick="delegateNow()">Delegate Now</button> <!-- New button -->
+       
     </div>
 
     <script>
@@ -70,15 +70,7 @@
             return html;
         }
 
-        async function delegateNow() {
-            const outputDiv = document.getElementById('output');
-            outputDiv.innerHTML += <div class="chat-bubble user">Delegate now</div>;
-            const response = await fetch('http://127.0.0.1:8000/trigger');
-
-            const data = await response.json();
-            outputDiv.innerHTML += <div class="chat-bubble ai">${data.message || 'Delegation triggered!'}</div>;
-            outputDiv.scrollTop = outputDiv.scrollHeight;
-        }
+        
     </script>
 
 </body>
