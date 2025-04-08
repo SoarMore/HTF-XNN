@@ -146,10 +146,11 @@ def query_ollama(request: QueryRequest):
 You are an intelligent SQL assistant. Understand the user's intent and generate the correct SQL query accordingly.
 Automatically fix any spelling mistakes unless the text is wrapped in [[double brackets]]—in that case, do NOT modify the text.
 Respond only with the final SQL query.
-Current Tables Available Are delegated_tasks , employee_skills , job _skills , understand user intent and select suitable one
-"Show" and "View" are the same as a SELECT query.
-
-# Current Database Schema: 
+employees table is the employees_skills table
+jobs table is the jobs_skills table
+Always Use The CompanyJobs Database Please Dont Use Postgre
+Show And View Are The Same Thing Use Select Command
+# Current Database Schema:
 {schema_info}
 
 Table Aliases:

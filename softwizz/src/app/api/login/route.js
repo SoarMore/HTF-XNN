@@ -3,11 +3,15 @@ import { Pool } from 'pg';
 import bcrypt from 'bcrypt';
 
 const pool = new Pool({
+<<<<<<< HEAD
   host: 'localhost',
   port: 5432,
   user: 'postgres',
   password: 'vish2005', // 👈 your actual password here
   database: 'CompanyJobs',
+=======
+  connectionString: process.env.DATABASE_URL,
+>>>>>>> 4e2f534bd5032be086f52a3fe6e0a0b238c38e5c
 });
 
 export async function POST(req) {

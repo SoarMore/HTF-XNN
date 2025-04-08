@@ -8,6 +8,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const router = useRouter();
 
+<<<<<<< HEAD
   const handleLogin = async () => {
     if (!username || !password) {
       alert('Please enter both username and password');
@@ -32,6 +33,34 @@ export default function LoginPage() {
       console.error(err);
       alert('Login error');
     }
+=======
+  const handleLogin = () => {
+    const handleLogin = async () => {
+      if (!username || !password) {
+        alert('Please enter both username and password');
+        return;
+      }
+    
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password }),
+        });
+    
+        const data = await res.json();
+    
+        if (data.success) {
+          router.push('/employees');
+        } else {
+          alert(data.message);
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Login error');
+      }
+    };
+>>>>>>> 4e2f534bd5032be086f52a3fe6e0a0b238c38e5c
   };
 
   return (

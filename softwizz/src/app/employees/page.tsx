@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -55,3 +56,5 @@ export default function EmployeesPage() {
     </div>
   );
 }
+=======
+>>>>>>> 4e2f534bd5032be086f52a3fe6e0a0b238c38e5c
