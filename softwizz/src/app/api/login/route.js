@@ -1,36 +1,31 @@
+import { NextResponse } from 'next/server';
 import { Pool } from 'pg';
 import bcrypt from 'bcrypt';
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL, // Store your DB URL in .env
+  connectionString: process.env.DATABASE_URL,
 });
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).end('Method Not Allowed');
-  }
-
-  const { username, password } = req.body;
+export async function POST(req) {
+  const { username, password } = await req.json();
 
   try {
-    const client = await pool.connect();
-    const result = await client.query('SELECT * FROM users WHERE username = $1', [username]);
-    client.release();
+    const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
 
     if (result.rows.length === 0) {
-      return res.status(401).json({ success: false, message: 'User not found' });
+      return NextResponse.json({ success: false, message: 'User not found' });
     }
 
     const user = result.rows[0];
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isValid = await bcrypt.compare(password, user.password);
 
-    if (!isPasswordValid) {
-      return res.status(401).json({ success: false, message: 'Invalid password' });
+    if (!isValid) {
+      return NextResponse.json({ success: false, message: 'Invalid password' });
     }
 
-    return res.status(200).json({ success: true, message: 'Login successful' });
+    return NextResponse.json({ success: true, message: 'Login successful' });
   } catch (err) {
-    console.error('Login error:', err);
-    return res.status(500).json({ success: false, message: 'Server error' });
+    console.error(err);
+    return NextResponse.json({ success: false, message: 'Server error' });
   }
 }
