@@ -7,7 +7,7 @@ export default function Home() {
       {/* Left Section */}
       <div className="w-1/2 relative">
         <Image
-          src="/soft.png"
+          src="/softwizz.png"
           alt="Soft Wizz Background"
           fill
           className="object-cover"

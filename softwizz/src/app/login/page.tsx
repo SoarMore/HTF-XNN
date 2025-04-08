@@ -9,12 +9,31 @@ export default function LoginPage() {
   const router = useRouter();
 
   const handleLogin = () => {
-    // Fake login check — in production, validate this
-    if (username && password) {
-      router.push('/employees');
-    } else {
-      alert('Please enter both username and password');
-    }
+    const handleLogin = async () => {
+      if (!username || !password) {
+        alert('Please enter both username and password');
+        return;
+      }
+    
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password }),
+        });
+    
+        const data = await res.json();
+    
+        if (data.success) {
+          router.push('/employees');
+        } else {
+          alert(data.message);
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Login error');
+      }
+    };
   };
 
   return (
