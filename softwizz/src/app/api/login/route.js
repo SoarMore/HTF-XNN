@@ -1,69 +1,37 @@
-'use client';
+import { NextResponse } from 'next/server';
+import { Pool } from 'pg';
+import bcrypt from 'bcrypt';
 
-import { useState } from 'react';
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT || '5432'),
+  user: process.env.DB_USER || 'postgres',
+  password: process.env.DB_PASSWORD || 'vish2005',
+  database: process.env.DB_NAME || 'CompanyJobs',
+});
 
-export default function LoginPage() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+export async function POST(req) {
+  try {
+    const { username, password } = await req.json();
 
-  const handleLogin = async () => {
-    try {
-      const res = await fetch('/api/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password }),
-      });
+    const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
 
-      const data = await res.json();
-
-      if (data.success) {
-        // ✅ Store the logged-in username
-        localStorage.setItem('username', username);
-
-        // ✅ Redirect to dashboard
-        window.location.href = '/employees';
-      } else {
-        setError(data.message);
-      }
-    } catch (err) {
-      console.error('Login error:', err);
-      setError('Something went wrong. Please try again.');
+    if (result.rows.length === 0) {
+      return NextResponse.json({ success: false, message: 'User not found' });
     }
-  };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-[#f1f9f7] px-4">
-      <div className="max-w-md w-full bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-2xl font-semibold text-center mb-6">Employee Login</h2>
+    const user = result.rows[0];
 
-        {error && <p className="text-red-500 mb-4 text-center">{error}</p>}
+    const passwordMatch = await bcrypt.compare(password, user.password); // ✅ bcrypt verify
 
-        <input
-          type="text"
-          placeholder="Username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          className="w-full mb-4 p-2 border rounded"
-        />
+    if (!passwordMatch) {
+      return NextResponse.json({ success: false, message: 'Invalid password' });
+    }
 
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full mb-6 p-2 border rounded"
-        />
-
-        <button
-          onClick={handleLogin}
-          className="w-full bg-[#0a2b24] text-white py-2 rounded hover:bg-[#0d3a31]"
-        >
-          Login
-        </button>
-      </div>
-    </div>
-  );
+    return NextResponse.json({ success: true, message: 'Login successful' });
+  } catch (err) {
+    console.error('Login error:', err);
+    return NextResponse.json({ success: false, message: 'Server error' });
+  }
 }

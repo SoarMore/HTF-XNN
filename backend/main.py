@@ -160,8 +160,8 @@ Table Aliases:
 ## Query Behavior Guidelines:
 
 ### Table Sorting 
-If the user asks to sort or reorder a table permanently:
-CREATE TABLE original_temp AS SELECT * FROM original ORDER BY column;
+If the user asks to sort or reorder a table permanently: 
+CREATE TABLE original_temp AS SELECT * FROM original ORDER BY column;    
 DROP TABLE original;
 ALTER TABLE original_temp RENAME TO original;
 
