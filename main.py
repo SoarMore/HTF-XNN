@@ -1,38 +1,155 @@
-from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI
 from pydantic import BaseModel
-from datetime import datetime, timedelta
-from apscheduler.schedulers.background import BackgroundScheduler
 import psycopg2
+import requests
+import datetime
 import os
+import json
+from apscheduler.schedulers.background import BackgroundScheduler
 
 app = FastAPI()
 
-# Database connection
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+class QueryRequest(BaseModel):
+    prompt: str
+
 conn = psycopg2.connect(
-    dbname="CompanyJobs",
-    user="postgres",
-    password="vish2005",
     host="localhost",
-    port="5432"
+    database="CompanyJobs",
+    user="postgres",
+    password="vish2005"
 )
 cursor = conn.cursor()
 
-# Delegation Prompt
-SQL_PROMPT = """
+def perform_task_delegation():
+    try:
+        cursor.execute("SELECT * FROM job_skills")
+        job_data = cursor.fetchall()
+        job_columns = [desc[0] for desc in cursor.description]
+
+        cursor.execute("SELECT * FROM employee_skills")
+        employee_data = cursor.fetchall()
+        emp_columns = [desc[0] for desc in cursor.description]
+
+        jobs = [dict(zip(job_columns, row)) for row in job_data]
+        employees = [dict(zip(emp_columns, row)) for row in employee_data]
+
+        jobs.sort(key=lambda x: x.get("priority", 3))
+
+        delegated_tasks = []
+
+        for job in jobs:
+            if job.get("priority", 3) != 2:
+                continue
+
+            best_match = None
+            best_score = -1
+
+            for emp in employees:
+                if emp.get("status", "Available") == "Absent":
+                    continue
+
+                match_score = 0
+                for skill in job_columns:
+                    if skill in ["job_id", "job_name", "priority"]:
+                        continue
+                    if skill in emp_columns and emp.get(skill, 0) >= job.get(skill, 0):
+                        match_score += 1
+
+                if match_score > best_score:
+                    best_score = match_score
+                    best_match = emp
+
+            if best_match:
+                delegated_tasks.append({
+                    "employee_name": best_match["name"],
+                    "job_name": job["job_name"]
+                })
+
+        today = datetime.date.today()
+        table_name = f"delegated_tasks_{today.strftime('%Y_%m_%d')}"
+
+        cursor.execute(f"""
+            CREATE TABLE IF NOT EXISTS {table_name} (
+                name TEXT,
+                delegated_job TEXT
+            )
+        """)
+        for task in delegated_tasks:
+            cursor.execute(f"""
+                INSERT INTO {table_name} (name, delegated_job)
+                VALUES (%s, %s)
+            """, (task["employee_name"], task["job_name"]))
+
+        conn.commit()
+
+        history_folder = "delegation_history"
+        os.makedirs(history_folder, exist_ok=True)
+        history_path = os.path.join(history_folder, f"delegation_{today.isoformat()}.json")
+        with open(history_path, "w") as f:
+            json.dump({"date": today.isoformat(), "tasks": delegated_tasks}, f, indent=4)
+
+        files = sorted(os.listdir(history_folder))
+        if len(files) > 15:
+            for file in files[:-15]:
+                os.remove(os.path.join(history_folder, file))
+
+    except Exception as e:
+        print(f"Delegation error: {e}")
+
+scheduler = BackgroundScheduler()
+scheduler.add_job(perform_task_delegation, 'cron', hour=6, minute=0)
+scheduler.start()
+
+@app.post("/query")
+def query_ollama(request: QueryRequest):
+    if "delegate now" in request.prompt.lower():
+        perform_task_delegation()
+        return {"message": "Task delegation executed manually."}
+
+    cursor.execute("""
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public'
+    """)
+    tables = cursor.fetchall()
+
+    schema_info = ""
+    for (table,) in tables:
+        cursor.execute(f"""
+            SELECT column_name, data_type 
+            FROM information_schema.columns 
+            WHERE table_name = '{table}'
+        """)
+        columns = cursor.fetchall()
+        schema_info += f"Table: {table}\n"
+        for col, dtype in columns:
+            schema_info += f"  - {col} ({dtype})\n"
+        schema_info += "\n"
+
+    prompt = f"""
 You are an intelligent SQL assistant. Understand the user's intent and generate the correct SQL query accordingly.
 Automatically fix any spelling mistakes unless the text is wrapped in [[double brackets]]—in that case, do NOT modify the text.
 Respond only with the final SQL query.
 employees table is the employees_skills table
 jobs table is the jobs_skills table
 Always Use The CompanyJobs Database Please Dont Use Postgre
+Show And View Are The Same Thing Use Select Command
 # Current Database Schema:
 {schema_info}
-
 If the user asks to sort or reorder a table permanently, do this:
 CREATE TABLE original_temp AS SELECT * FROM original ORDER BY column;
 DROP TABLE original;
 ALTER TABLE original_temp RENAME TO original;
-
+When Delete Table Is Told Delete The Entire Table And Not Just What Co
 When inserting or updating values:
 - Generate realistic sample values based on column names and data types.
 - Do NOT use SQL functions like RAND(), RANDOM(), or similar.
@@ -80,86 +197,71 @@ When Job Table Is Mentioned Use Job_Skills table
 Now process this: {request.prompt}
 """
 
-# Delegation Logic
+    try:
+        response = requests.post(
+            "http://localhost:11434/api/generate",
+            json={"model": "llama3.2", "prompt": prompt, "stream": False}
+        )
+        result = response.json()
+    except Exception as e:
+        return {"error": f"Ollama call failed: {str(e)}"}
 
-def delegate_tasks():
-    today = datetime.now().strftime('%Y_%m_%d')
-    delegated_table = f"delegated_tasks_{today}"
+    ai_response = result.get('response', '').strip()
 
-    cursor.execute(f"""
-        CREATE TABLE IF NOT EXISTS {delegated_table} (
-            employee_name TEXT,
-            delegated_job TEXT
-        );
-    """)
+    if ai_response.upper().startswith("SELECT"):
+        try:
+            cursor.execute(ai_response)
+            rows = cursor.fetchall()
+            column_names = [desc[0] for desc in cursor.description]
+            return {"query": ai_response, "columns": column_names, "result": rows}
+        except Exception as e:
+            return {"error": str(e), "query": ai_response}
 
-    cursor.execute("SELECT * FROM jobs_skills WHERE assigned_to IS NULL")
-    unassigned_jobs = cursor.fetchall()
+    if ai_response.upper().startswith("UPDATE"):
+        try:
+            table = ai_response.split(" ")[1]
+            where_clause = ai_response.split("WHERE")[-1] if "WHERE" in ai_response else ""
+            before_query = f"SELECT * FROM {table} WHERE {where_clause}" if where_clause else f"SELECT * FROM {table}"
+            cursor.execute(before_query)
+            before = cursor.fetchall()
+            before_columns = [desc[0] for desc in cursor.description]
+            cursor.execute(ai_response)
+            conn.commit()
+            cursor.execute(before_query)
+            after = cursor.fetchall()
+            return {"query": ai_response, "before": before, "after": after, "columns": before_columns}
+        except Exception as e:
+            return {"error": str(e), "query": ai_response}
 
-    for job in unassigned_jobs:
-        job_id, job_name, required_skills, priority, required_designation, assigned_to = job
+    if ai_response.upper().startswith("DELETE"):
+        try:
+            table = ai_response.split("FROM")[1].split("WHERE")[0].strip()
+            where_clause = ai_response.split("WHERE")[-1] if "WHERE" in ai_response else ""
+            before_query = f"SELECT * FROM {table} WHERE {where_clause}" if where_clause else f"SELECT * FROM {table}"
+            cursor.execute(before_query)
+            deleted = cursor.fetchall()
+            deleted_columns = [desc[0] for desc in cursor.description]
+            cursor.execute(ai_response)
+            conn.commit()
+            return {"query": ai_response, "deleted": deleted, "columns": deleted_columns}
+        except Exception as e:
+            return {"error": str(e), "query": ai_response}
 
-        # First, try to match same designation
-        cursor.execute("""
-            SELECT id, name FROM employees_skills
-            WHERE status = 'Active'
-            AND designation = %s
-            AND id NOT IN (SELECT assigned_to FROM jobs_skills WHERE assigned_to IS NOT NULL)
-        """, (required_designation,))
-        same_designation = cursor.fetchall()
+    if ai_response.upper().startswith("INSERT"):
+        try:
+            cursor.execute(ai_response)
+            conn.commit()
+            return {"query": ai_response, "message": "Row inserted successfully."}
+        except Exception as e:
+            return {"error": str(e), "query": ai_response}
 
-        selected = None
-
-        if same_designation:
-            selected = same_designation[0]  # If multiple, just pick one for now
-        else:
-            # Try matching by skills
-            cursor.execute("""
-                SELECT id, name, skills FROM employees_skills
-                WHERE status = 'Active'
-                AND id NOT IN (SELECT assigned_to FROM jobs_skills WHERE assigned_to IS NOT NULL)
-            """)
-            all_candidates = cursor.fetchall()
-
-            for candidate in all_candidates:
-                cid, cname, cskills = candidate
-                if all(skill.strip() in cskills.split(',') for skill in required_skills.split(',')):
-                    selected = (cid, cname)
-                    break
-
-        if not selected:
-            # Pick someone senior
-            cursor.execute("""
-                SELECT id, name FROM employees_skills
-                WHERE status = 'Active'
-                AND designation > %s
-                AND id NOT IN (SELECT assigned_to FROM jobs_skills WHERE assigned_to IS NOT NULL)
-            """, (required_designation,))
-            senior = cursor.fetchone()
-            if senior:
-                selected = senior
-
-        if selected:
-            cid, cname = selected
-            cursor.execute("UPDATE jobs_skills SET assigned_to = %s WHERE id = %s", (cid, job_id))
-            cursor.execute(f"INSERT INTO {delegated_table} (employee_name, delegated_job) VALUES (%s, %s)", (cname, job_name))
-
-    conn.commit()
-
-# Auto run every morning
-scheduler = BackgroundScheduler()
-scheduler.add_job(delegate_tasks, 'cron', hour=6)
-scheduler.start()
-
-# Manual Delegation Trigger
-class PromptRequest(BaseModel):
-    prompt: str
-
-@app.post("/query")
-async def run_prompt(request: PromptRequest):
-    if "delegate now" in request.prompt.lower():
-        delegate_tasks()
-        return {"message": "Manual delegation triggered"}
-
-    # Normal LLM handling with the prompt
-    return {"sql": SQL_PROMPT.format(request=request, schema_info="")}
+    try:
+        statements = ai_response.split(";")
+        for stmt in statements:
+            stmt = stmt.strip()
+            if stmt:
+                cursor.execute(stmt)
+        conn.commit()
+        return {"query": ai_response, "message": "Query executed successfully."}
+    except Exception as e:
+        return {"error": str(e), "query": ai_response}
