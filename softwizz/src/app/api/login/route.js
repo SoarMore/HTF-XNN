@@ -1,39 +1,69 @@
-import { NextResponse } from 'next/server';
-import { Pool } from 'pg';
-import bcrypt from 'bcrypt';
+'use client';
 
-const pool = new Pool({
-<<<<<<< HEAD
-  host: 'localhost',
-  port: 5432,
-  user: 'postgres',
-  password: 'vish2005', // 👈 your actual password here
-  database: 'CompanyJobs',
-=======
-  connectionString: process.env.DATABASE_URL,
->>>>>>> 4e2f534bd5032be086f52a3fe6e0a0b238c38e5c
-});
+import { useState } from 'react';
 
-export async function POST(req) {
-  const { username, password } = await req.json();
+export default function LoginPage() {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
-  try {
-    const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+  const handleLogin = async () => {
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+      });
 
-    if (result.rows.length === 0) {
-      return NextResponse.json({ success: false, message: 'User not found' });
+      const data = await res.json();
+
+      if (data.success) {
+        // ✅ Store the logged-in username
+        localStorage.setItem('username', username);
+
+        // ✅ Redirect to dashboard
+        window.location.href = '/employees';
+      } else {
+        setError(data.message);
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('Something went wrong. Please try again.');
     }
+  };
 
-    const user = result.rows[0];
-    const isValid = await bcrypt.compare(password, user.password);
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[#f1f9f7] px-4">
+      <div className="max-w-md w-full bg-white p-6 rounded-lg shadow-md">
+        <h2 className="text-2xl font-semibold text-center mb-6">Employee Login</h2>
 
-    if (!isValid) {
-      return NextResponse.json({ success: false, message: 'Invalid password' });
-    }
+        {error && <p className="text-red-500 mb-4 text-center">{error}</p>}
 
-    return NextResponse.json({ success: true, message: 'Login successful' });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ success: false, message: 'Server error' });
-  }
+        <input
+          type="text"
+          placeholder="Username"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          className="w-full mb-4 p-2 border rounded"
+        />
+
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="w-full mb-6 p-2 border rounded"
+        />
+
+        <button
+          onClick={handleLogin}
+          className="w-full bg-[#0a2b24] text-white py-2 rounded hover:bg-[#0d3a31]"
+        >
+          Login
+        </button>
+      </div>
+    </div>
+  );
 }
