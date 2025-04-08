@@ -152,7 +152,8 @@ Always Use The CompanyJobs Database Please Dont Use Postgre
 Show And View Are The Same Thing Use Select Command
 # Current Database Schema:
 {schema_info}
-
+Dont Input Anything Unnecessarry 
+Dont Input Anything Unless The User Had Intent
 Table Aliases:
 - When the user refers to the "employee" or "employees" table, use the employee_skills table.
 - When the user refers to the "job" or "jobs" table, use the jobs_skills table.
