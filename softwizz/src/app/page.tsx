@@ -7,7 +7,7 @@ export default function Home() {
       {/* Left Section */}
       <div className="w-1/2 relative">
         <Image
-          src="/soft.png"
+          src="/softwizz.png"
           alt="Soft Wizz Background"
           fill
           className="object-cover"
@@ -20,7 +20,7 @@ export default function Home() {
             <h1 className="mt-2">Softwizz</h1>
             <div className="mt-4">
               <span className="border border-[#0a2b24] rounded-full px-4 py-2 text-lg font-medium">
-                Work Force Management
+               <Link href="http://192.168.2.214"> Work Force Management</Link>
               </span>
             </div>
           </div>

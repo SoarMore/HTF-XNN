@@ -1,46 +1,57 @@
 'use client';
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
 
-type User = {
-  id: number;
-  name: string;
-  username: string;
-  email: string;
-  phone: string;
-  website: string;
-  company: { name: string; catchPhrase: string };
-};
+import { useEffect, useState } from 'react';
 
 export default function EmployeesPage() {
-  const [user, setUser] = useState<User | null>(null);
-  const { id } = useParams();
+  const [employees, setEmployees] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    const fetchUser = async () => {
-      const res = await fetch(https://jsonplaceholder.typicode.com/users/${id});
-      const data: User = await res.json();
-      setUser(data);
-    };
+    setIsMounted(true);
 
-    fetchUser();
-  }, [id]);
+    async function fetchEmployees() {
+      try {
+        const res = await fetch('/api/employees');
+        const data = await res.json();
+        setEmployees(data.employees);
+      } catch (err) {
+        console.error('Error fetching employees:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchEmployees();
+  }, []);
+
+  if (!isMounted) return null; // Wait for hydration
+
+  if (loading) return <p>Loading...</p>;
 
   return (
-    <div className="min-h-screen bg-[#def1ec] p-10">
-      <h1 className="text-3xl font-bold text-[#0a2b24] mb-6">Employee Details</h1>
-      {user ? (
-        <div className="max-w-4xl bg-[#cce7df] p-6 rounded-lg text-[#0a2b24]">
-          <p><strong>Name:</strong> {user.name}</p>
-          <p><strong>Username:</strong> {user.username}</p>
-          <p><strong>Email:</strong> {user.email}</p>
-          <p><strong>Phone:</strong> {user.phone}</p>
-          <p><strong>Website:</strong> {user.website}</p>
-          <p><strong>Company:</strong> {user.company.name} - {user.company.catchPhrase}</p>
-        </div>
-      ) : (
-        <p>Loading user details...</p>
-      )}
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-4">Employees</h1>
+      <table className="border-collapse w-full">
+        <thead>
+          <tr className="bg-gray-200">
+            <th className="border px-4 py-2">ID</th>
+            <th className="border px-4 py-2">Name</th>
+            <th className="border px-4 py-2">Role</th>
+            <th className="border px-4 py-2">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {employees.map((emp) => (
+            <tr key={emp.id}>
+              <td className="border px-4 py-2">{emp.id}</td>
+              <td className="border px-4 py-2">{emp.name}</td>
+              <td className="border px-4 py-2">{emp.role}</td>
+              <td className="border px-4 py-2">{emp.status}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

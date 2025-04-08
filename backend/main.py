@@ -21,6 +21,7 @@ app.add_middleware(
 class QueryRequest(BaseModel):
     prompt: str
 
+# Database connection
 conn = psycopg2.connect(
     host="localhost",
     database="CompanyJobs",
@@ -29,6 +30,7 @@ conn = psycopg2.connect(
 )
 cursor = conn.cursor()
 
+# Task delegation logic
 def perform_task_delegation():
     try:
         cursor.execute("SELECT * FROM job_skills")
@@ -91,12 +93,14 @@ def perform_task_delegation():
 
         conn.commit()
 
+        # Save JSON history
         history_folder = "delegation_history"
         os.makedirs(history_folder, exist_ok=True)
         history_path = os.path.join(history_folder, f"delegation_{today.isoformat()}.json")
         with open(history_path, "w") as f:
             json.dump({"date": today.isoformat(), "tasks": delegated_tasks}, f, indent=4)
 
+        # Keep only latest 15
         files = sorted(os.listdir(history_folder))
         if len(files) > 15:
             for file in files[:-15]:
@@ -105,6 +109,7 @@ def perform_task_delegation():
     except Exception as e:
         print(f"Delegation error: {e}")
 
+# Schedule daily delegation
 scheduler = BackgroundScheduler()
 scheduler.add_job(perform_task_delegation, 'cron', hour=6, minute=0)
 scheduler.start()
@@ -115,6 +120,7 @@ def query_ollama(request: QueryRequest):
         perform_task_delegation()
         return {"message": "Task delegation executed manually."}
 
+    # Fetch schema
     cursor.execute("""
         SELECT table_name 
         FROM information_schema.tables 
@@ -135,64 +141,71 @@ def query_ollama(request: QueryRequest):
             schema_info += f"  - {col} ({dtype})\n"
         schema_info += "\n"
 
+    # LLM prompt
     prompt = f"""
 You are an intelligent SQL assistant. Understand the user's intent and generate the correct SQL query accordingly.
 Automatically fix any spelling mistakes unless the text is wrapped in [[double brackets]]—in that case, do NOT modify the text.
 Respond only with the final SQL query.
-employees table is the employees_skills table
-jobs table is the jobs_skills table
-Always Use The CompanyJobs Database Please Dont Use Postgre
-Show And View Are The Same Thing Use Select Command
-# Current Database Schema:
+Current Tables Available Are delegated_tasks , employee_skills , job _skills , understand user intent and select suitable one
+"Show" and "View" are the same as a SELECT query.
+
+# Current Database Schema: 
 {schema_info}
-If the user asks to sort or reorder a table permanently, do this:
+
+Table Aliases:
+- When the user refers to the "employee" or "employees" table, use the employee_skills table.
+- When the user refers to the "job" or "jobs" table, use the jobs_skills table.
+
+## Query Behavior Guidelines:
+
+### Table Sorting 
+If the user asks to sort or reorder a table permanently:
 CREATE TABLE original_temp AS SELECT * FROM original ORDER BY column;
 DROP TABLE original;
 ALTER TABLE original_temp RENAME TO original;
-When Delete Table Is Told Delete The Entire Table And Not Just What Co
+
+### Table Deletion
+If the user says "delete table", drop the entire table:
+DROP TABLE table_name;
+
+### Inserting or Updating Data
 When inserting or updating values:
 - Generate realistic sample values based on column names and data types.
-- Do NOT use SQL functions like RAND(), RANDOM(), or similar.
+- Do NOT use functions like RAND() or RANDOM().
 - Use examples like:
   • Names → 'John Doe'
   • Status → 'Active', 'On Leave'
   • Dates → '2024-01-01'
-  • Numbers → small positive integers
+  • Numbers → Small positive integers
+- Do NOT add random dates or values unless explicitly mentioned.
 
-When modifying existing rows in a table:
-- If the user says "change", "modify", or "add value to existing record", use an UPDATE statement.
-- Example: "Add role for ID 5 as Manager" → UPDATE employees SET role = 'Manager' WHERE id = 5;
-Do Not Enter Random Values Untill Specified By Me
--Example:Do Not Add Random Dates For leave_Date as its very sensitive without any input for it.
+### Modifying Existing Rows
+If the user wants to modify existing data:
+UPDATE table_name SET column = value WHERE condition;
 
-When the user says "delete column(s)", interpret it as:
-- Removing the column(s) from the table using ALTER TABLE.
-- Example: "Delete column1 and column2 from employees" → ALTER TABLE employees DROP COLUMN column1, DROP COLUMN column2;
+### Adding a Column
+If the user says "add column":
+ALTER TABLE table_name ADD COLUMN column_name datatype;
+UPDATE table_name SET column_name = value;
 
-Do NOT confuse deleting columns with deleting rows where the columns are null.
+Example : update table employee skills PPT,Video , Level 5,5 where id is 2
+Answer : UPDATE employee_skills SET level = '5,5' AND skills = 'PPT,Video' WHERE id = '2';
 
-If the user says "delete rows where column1 is null", then use:
-DELETE FROM table WHERE column1 IS NULL;
+### Deleting Columns
+If the user says "delete column(s)":
+ALTER TABLE table_name DROP COLUMN column1, DROP COLUMN column2;
 
-When the user asks to add a column:
-- Use ALTER TABLE to add the column.
-- Then, use UPDATE to populate it with values.
-- Do not use SELECT ... AS column_name unless the user only wants a temporary display.
+### Deleting Rows with NULL
+If the user says "delete rows where column is null":
+DELETE FROM table_name WHERE column IS NULL;
 
-If the user says "add a new employee", "insert a record", "add a row", or similar:
-- Use INSERT INTO with appropriate values.
-- Example: "Add an employee with ID 10 named John" →
-  INSERT INTO employees (id, name) VALUES (10, 'John');
+### Removing a Value from a Column 
+If the user says "clear", "remove", or "delete" a value from a column:
+UPDATE table_name SET column = NULL WHERE condition;
 
-When the user says "delete column(s)", interpret it as:
-- Removing the column(s) from the table using ALTER TABLE.
-
-When the user says "remove value from a column", "delete value", or "clear leave_date" or similar:
-- Use UPDATE to set that column to NULL.
-- Example: "Remove leave_date for employee 10" → UPDATE employees SET leave_date = NULL WHERE id = 10;
-
-When Employee table is mentioned use the Employee_Skills table 
-When Job Table Is Mentioned Use Job_Skills table
+### Adding a New Record
+If the user says "add a new row", "insert a record":
+INSERT INTO table_name (column1, column2) VALUES (value1, value2);
 
 Now process this: {request.prompt}
 """
@@ -208,6 +221,7 @@ Now process this: {request.prompt}
 
     ai_response = result.get('response', '').strip()
 
+    # SELECT
     if ai_response.upper().startswith("SELECT"):
         try:
             cursor.execute(ai_response)
@@ -217,6 +231,7 @@ Now process this: {request.prompt}
         except Exception as e:
             return {"error": str(e), "query": ai_response}
 
+    # UPDATE
     if ai_response.upper().startswith("UPDATE"):
         try:
             table = ai_response.split(" ")[1]
@@ -233,6 +248,7 @@ Now process this: {request.prompt}
         except Exception as e:
             return {"error": str(e), "query": ai_response}
 
+    # DELETE
     if ai_response.upper().startswith("DELETE"):
         try:
             table = ai_response.split("FROM")[1].split("WHERE")[0].strip()
@@ -247,6 +263,7 @@ Now process this: {request.prompt}
         except Exception as e:
             return {"error": str(e), "query": ai_response}
 
+    # INSERT
     if ai_response.upper().startswith("INSERT"):
         try:
             cursor.execute(ai_response)
@@ -255,9 +272,10 @@ Now process this: {request.prompt}
         except Exception as e:
             return {"error": str(e), "query": ai_response}
 
+    # Other queries
     try:
         statements = ai_response.split(";")
-        for stmt in statements:
+        for stmt in statements: 
             stmt = stmt.strip()
             if stmt:
                 cursor.execute(stmt)
