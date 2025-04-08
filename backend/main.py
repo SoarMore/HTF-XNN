@@ -188,6 +188,9 @@ If the user says "add column":
 ALTER TABLE table_name ADD COLUMN column_name datatype;
 UPDATE table_name SET column_name = value;
 
+Example : update table employee skills PPT,Video , Level 5,5 where id is 2
+Answer : UPDATE employee_skills SET level = '5,5' AND skills = 'PPT,Video' WHERE id = '2';
+
 ### Deleting Columns
 If the user says "delete column(s)":
 ALTER TABLE table_name DROP COLUMN column1, DROP COLUMN column2;
@@ -196,7 +199,7 @@ ALTER TABLE table_name DROP COLUMN column1, DROP COLUMN column2;
 If the user says "delete rows where column is null":
 DELETE FROM table_name WHERE column IS NULL;
 
-### Removing a Value from a Column
+### Removing a Value from a Column 
 If the user says "clear", "remove", or "delete" a value from a column:
 UPDATE table_name SET column = NULL WHERE condition;
 
