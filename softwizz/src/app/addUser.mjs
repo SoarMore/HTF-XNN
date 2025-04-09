@@ -13,12 +13,12 @@ const pool = new Pool({
 });
 
 async function addUser() {
-  const username = 'testuser';
-  const rawPassword = 'test123';
+  const username = 'admin';
+  const rawPassword = 'admin456';
   const hashed = await bcrypt.hash(rawPassword, 10);
 
   await pool.query(
-    'INSERT INTO users (username, password) VALUES ($1, $2)',
+    'INSERT INTO admin (username, password) VALUES ($1, $2)',
     [username, hashed]
   );
 

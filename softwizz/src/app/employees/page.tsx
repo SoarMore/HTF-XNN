@@ -1,7 +1,9 @@
 'use client';
 
 import Image from 'next/image';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import ChatBox from '../components/chatbox.jsx'; // Import ChatBox
 
 type Employee = {
   id: number;
@@ -19,6 +21,7 @@ type Employee = {
 export default function EmployeeDashboard() {
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showChat, setShowChat] = useState(false); // State to toggle chat visibility
 
   useEffect(() => {
     const fetchEmployeeData = async () => {
@@ -55,16 +58,14 @@ export default function EmployeeDashboard() {
     <div className="h-screen overflow-y-auto bg-[#def1ec] px-4 py-8 text-[#0a2b24]">
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-6">
-          <button className="px-6 py-2 border border-[#0a2b24] rounded-full text-lg hover:bg-[#0a2b24] hover:text-white transition">
-            Profile
-          </button>
+          <h1 className='text-black text-3xl'>Profile</h1>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Section: Image + Chat Placeholder */}
           <div className="flex flex-col items-center">
             <Image
-              src="/user-icon.png"
+              src="/profile.png"
               alt="User Icon"
               width={150}
               height={150}
@@ -73,12 +74,18 @@ export default function EmployeeDashboard() {
             />
 
             <div className="w-full border border-[#0a2b24] p-4 rounded-md bg-white min-h-[200px] mb-2">
-              <p className="text-sm text-gray-500">Chat responses will appear here...</p>
+              <Link href={"/index"}>index</Link>
             </div>
 
-            <button className="px-4 py-2 border rounded-full bg-[#f1f9f7] hover:bg-[#cceae3] transition">
+            <button 
+              className="px-4 py-2 border rounded-full bg-[#f1f9f7] hover:bg-[#cceae3] transition"
+              onClick={() => setShowChat(!showChat)} // Toggle chat visibility
+            >
               Chat
             </button>
+
+            {/* Conditional rendering for ChatBox */}
+            {showChat && <ChatBox />}
           </div>
 
           {/* Right Section: Employee Info + Cards */}
@@ -98,18 +105,11 @@ export default function EmployeeDashboard() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-              <Card label="Attendance Status" value={employee.attendance || 'Present'} />
-              <Card label="Leave Balance" value={employee.leave_balance ?? 'N/A'} />
               <div className="border border-[#0a2b24] rounded-full px-4 py-3 bg-white text-center">
-                <button className="bg-[#0a2b24] text-white px-4 py-1 rounded-full hover:bg-[#15443b] transition">
-                  Apply for Leave
+                <button className="bg-[#0a2b24] text-white px-4 py-1 rounded-full hover:bg-[#15443b] transition  ">
+                  <a href="https://docs.google.com/forms/d/e/1FAIpQLSdURBVNKWYD7zRlwy6P4gDbRqEviYIV2cl8ULBjDRkkGM034Q/viewform?usp=dialog">Apply for Leave</a>
                 </button>
               </div>
-              <Card
-                label="Task for the Day"
-                value={employee.task || 'No task assigned'}
-                rounded="2xl"
-              />
             </div>
           </div>
         </div>

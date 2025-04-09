@@ -174,7 +174,7 @@ DROP TABLE table_name;
 When inserting or updating values:
 - Generate realistic sample values based on column names and data types.
 - Do NOT use functions like RAND() or RANDOM().
-- Use examples like: 
+- Use examples like:
   • Names → 'John Doe'
   • Status → 'Active', 'On Leave'
   • Dates → '2024-01-01'
