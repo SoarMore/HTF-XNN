@@ -73,10 +73,7 @@ export default function EmployeeDashboard() {
               priority
             />
 
-            <div className="w-full border border-[#0a2b24] p-4 rounded-md bg-white min-h-[200px] mb-2">
-              <Link href={"/index"}>index</Link>
-            </div>
-
+            
             <button 
               className="px-4 py-2 border rounded-full bg-[#f1f9f7] hover:bg-[#cceae3] transition"
               onClick={() => setShowChat(!showChat)} // Toggle chat visibility
